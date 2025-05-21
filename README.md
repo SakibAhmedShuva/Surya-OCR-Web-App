@@ -128,3 +128,7 @@ Document 1:
 This demonstration heavily relies on the Surya OCR library. All credit for the OCR technology goes to Vik Paruchuri and the contributors to the Surya project.
 
 Please refer to the original Surya repository for detailed documentation, issues, advanced usage, and information about the models.
+
+
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
