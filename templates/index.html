@@ -249,6 +249,7 @@
         });
 
         function displayResults(lines) {
+            resultsContent.innerHTML = ''; // Clear previous results
             if (!lines || lines.length === 0) {
                 resultsContent.innerHTML = '<p>No text was detected in the image.</p>';
                 return;
@@ -260,7 +261,10 @@
 
                 const textSpan = document.createElement('span');
                 textSpan.className = 'result-text';
-                textSpan.textContent = `"${line.text}"`;
+                
+                // FIX: Remove <b> and </b> tags from the text before displaying it.
+                const cleanedText = line.text.replace(/<\/?b>/g, '');
+                textSpan.textContent = `"${cleanedText}"`;
                 
                 const confidenceSpan = document.createElement('span');
                 confidenceSpan.className = 'result-confidence';
