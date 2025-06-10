@@ -1,5 +1,3 @@
---- START OF FILE index.html ---
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -15,6 +13,8 @@
             --card-bg: #ffffff;
             --border-color: #dee2e6;
             --error-color: #dc3545;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
             --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         }
 
@@ -32,7 +32,7 @@
 
         .container {
             width: 100%;
-            max-width: 1200px; /* Increased max-width for better layout */
+            max-width: 1200px;
             background: var(--card-bg);
             padding: 2rem;
             border-radius: 8px;
@@ -90,7 +90,6 @@
             background-color: #5a6268;
         }
         
-        /* New gallery styles */
         #gallery {
             display: flex;
             flex-direction: column;
@@ -103,7 +102,7 @@
             border-radius: 8px;
             padding: 1.5rem;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            position: relative; /* For spinner positioning */
+            position: relative;
         }
 
         .card-content {
@@ -113,7 +112,7 @@
         }
 
         .card-spinner {
-            display: none; /* Hidden by default */
+            display: none;
             position: absolute;
             top: 50%;
             left: 50%;
@@ -178,8 +177,70 @@
         .error-text {
             color: var(--error-color);
             font-weight: bold;
+            background: #f8d7da;
+            padding: 1rem;
+            border-radius: 4px;
+            border: 1px solid #f5c6cb;
         }
 
+        .warning-text {
+            color: #856404;
+            background: #fff3cd;
+            padding: 1rem;
+            border-radius: 4px;
+            border: 1px solid #ffeaa7;
+        }
+
+        .success-text {
+            color: var(--success-color);
+            background: #d4edda;
+            padding: 1rem;
+            border-radius: 4px;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .status-processing {
+            background: #cce5ff;
+            color: #0056b3;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: var(--success-color);
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: var(--error-color);
+        }
+
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        @media (max-width: 768px) {
+            .card-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            #imageFile {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -187,7 +248,7 @@
     <div class="container">
         <header>
             <h1>Surya OCR</h1>
-            <p>Upload one or more images to extract text.</p>
+            <p>Upload one or more images to extract text with advanced error handling.</p>
         </header>
 
         <div class="controls">
@@ -208,7 +269,7 @@
         const gallery = document.getElementById('gallery');
 
         imageFileInput.addEventListener('change', () => {
-            gallery.innerHTML = ''; // Clear previous previews
+            gallery.innerHTML = '';
             const files = imageFileInput.files;
             
             if (!files || files.length === 0) {
@@ -218,7 +279,7 @@
             submitButton.disabled = false;
 
             Array.from(files).forEach((file, index) => {
-                const card = createResultCard(index, file.name);
+                const card = createResultCard(index, file.name, file.size);
                 gallery.appendChild(card);
                 
                 const imagePreview = document.getElementById(`image-preview-${index}`);
@@ -232,7 +293,7 @@
         });
 
         clearButton.addEventListener('click', () => {
-            imageFileInput.value = ''; // Important to reset the file input
+            imageFileInput.value = '';
             gallery.innerHTML = '';
             submitButton.disabled = true;
         });
@@ -261,16 +322,19 @@
             clearButton.disabled = false;
         });
 
-        function createResultCard(index, fileName) {
+        function createResultCard(index, fileName, fileSize) {
             const card = document.createElement('div');
             card.className = 'result-card';
             card.id = `card-${index}`;
+            
+            const fileSizeKB = (fileSize / 1024).toFixed(1);
             
             card.innerHTML = `
                 <div class="card-spinner" id="spinner-${index}"></div>
                 <div class="card-content">
                     <div class="image-preview-container">
-                        <h3>${fileName}</h3>
+                        <h3>${fileName} <span class="status-badge status-processing" id="status-${index}">Ready</span></h3>
+                        <p style="font-size: 0.9em; color: #666; margin: 0.5rem 0;">Size: ${fileSizeKB} KB</p>
                         <img class="image-preview" id="image-preview-${index}" src="" alt="Image Preview"/>
                     </div>
                     <div class="results-area">
@@ -284,12 +348,21 @@
             return card;
         }
 
+        function updateStatus(index, status, message) {
+            const statusBadge = document.getElementById(`status-${index}`);
+            if (statusBadge) {
+                statusBadge.className = `status-badge status-${status}`;
+                statusBadge.textContent = message;
+            }
+        }
+
         async function processImage(file, index) {
             const spinner = document.getElementById(`spinner-${index}`);
             const resultsContent = document.getElementById(`results-content-${index}`);
             
+            updateStatus(index, 'processing', 'Processing');
             spinner.style.display = 'block';
-            resultsContent.innerHTML = '';
+            resultsContent.innerHTML = '<p>Processing image...</p>';
 
             const formData = new FormData();
             formData.append('image', file);
@@ -300,16 +373,23 @@
                     body: formData,
                 });
 
+                const data = await response.json();
+
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || `Server responded with status: ${response.status}`);
+                    throw new Error(data.error || `Server responded with status: ${response.status}`);
                 }
 
-                const data = await response.json();
-                displayResults(data.text_lines, resultsContent);
+                if (data.text_lines && data.text_lines.length > 0) {
+                    updateStatus(index, 'success', 'Success');
+                    displayResults(data.text_lines, resultsContent);
+                } else {
+                    updateStatus(index, 'warning', 'No Text');
+                    displayNoTextFound(data.message || 'No text detected in image', resultsContent);
+                }
 
             } catch (error) {
                 console.error(`Error processing file ${index}:`, error);
+                updateStatus(index, 'error', 'Error');
                 displayError(`An error occurred: ${error.message}`, resultsContent);
             } finally {
                 spinner.style.display = 'none';
@@ -317,37 +397,70 @@
         }
 
         function displayResults(lines, targetElement) {
-            targetElement.innerHTML = ''; // Clear previous content
-            if (!lines || lines.length === 0) {
-                targetElement.innerHTML = '<p>No text was detected in the image.</p>';
-                return;
-            }
+            targetElement.innerHTML = '';
+            
+            const summary = document.createElement('div');
+            summary.className = 'success-text';
+            summary.innerHTML = `<strong>Success!</strong> Found ${lines.length} text line(s)`;
+            targetElement.appendChild(summary);
 
-            lines.forEach(line => {
+            lines.forEach((line, index) => {
                 const lineDiv = document.createElement('div');
                 lineDiv.className = 'result-line';
 
                 const textSpan = document.createElement('span');
                 textSpan.className = 'result-text';
                 
-                // Remove any bold tags from the model's output
                 const cleanedText = line.text.replace(/<\/?b>/g, '');
                 textSpan.textContent = `"${cleanedText}"`;
                 
                 const confidenceSpan = document.createElement('span');
                 confidenceSpan.className = 'result-confidence';
                 const confidencePercent = (line.confidence * 100).toFixed(2);
-                confidenceSpan.textContent = `Confidence: ${confidencePercent}%`;
+                confidenceSpan.textContent = `${confidencePercent}%`;
 
                 lineDiv.appendChild(textSpan);
                 lineDiv.appendChild(confidenceSpan);
                 targetElement.appendChild(lineDiv);
             });
         }
+
+        function displayNoTextFound(message, targetElement) {
+            targetElement.innerHTML = `
+                <div class="warning-text">
+                    <strong>No Text Detected</strong><br>
+                    ${message}<br><br>
+                    <small>Tips: Ensure the image has clear, readable text and good contrast.</small>
+                </div>
+            `;
+        }
         
         function displayError(message, targetElement) {
-            targetElement.innerHTML = `<p class="error-text">${message}</p>`;
+            targetElement.innerHTML = `
+                <div class="error-text">
+                    <strong>Processing Error</strong><br>
+                    ${message}<br><br>
+                    <small>Try uploading a different image or check the file format.</small>
+                </div>
+            `;
         }
+
+        // Health check on page load
+        window.addEventListener('load', async () => {
+            try {
+                const response = await fetch('/health');
+                const health = await response.json();
+                
+                if (!health.models_loaded) {
+                    const warning = document.createElement('div');
+                    warning.className = 'warning-text';
+                    warning.innerHTML = '<strong>Warning:</strong> OCR models are not properly loaded. Please check the server setup.';
+                    document.querySelector('.container').insertBefore(warning, document.querySelector('.controls'));
+                }
+            } catch (error) {
+                console.warn('Could not check server health:', error);
+            }
+        });
     </script>
 </body>
 </html>
