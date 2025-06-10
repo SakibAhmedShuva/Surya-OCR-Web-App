@@ -1,9 +1,11 @@
+--- START OF FILE index.html ---
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Surya OCR Online</title>
+    <title>Surya OCR Online - Multi-Image</title>
     <style>
         :root {
             --primary-color: #007bff;
@@ -12,6 +14,7 @@
             --text-color: #212529;
             --card-bg: #ffffff;
             --border-color: #dee2e6;
+            --error-color: #dc3545;
             --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         }
 
@@ -29,7 +32,7 @@
 
         .container {
             width: 100%;
-            max-width: 900px;
+            max-width: 1200px; /* Increased max-width for better layout */
             background: var(--card-bg);
             padding: 2rem;
             border-radius: 8px;
@@ -68,6 +71,7 @@
             font-size: 1rem;
             cursor: pointer;
             transition: background-color 0.2s;
+            white-space: nowrap;
         }
 
         button:hover {
@@ -79,43 +83,68 @@
             cursor: not-allowed;
         }
 
-        .spinner {
-            display: none; /* Hidden by default */
-            margin: 2rem auto;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid var(--primary-color);
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
+        #clearBtn {
+            background-color: var(--secondary-color);
+        }
+        #clearBtn:hover {
+            background-color: #5a6268;
+        }
+        
+        /* New gallery styles */
+        #gallery {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .result-card {
+            background: #fdfdff;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            position: relative; /* For spinner positioning */
         }
 
-        .results-container {
+        .card-content {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 2rem;
-            margin-top: 1rem;
         }
 
-        #imagePreviewContainer, #results {
-            padding: 1rem;
-            border: 1px solid var(--border-color);
-            border-radius: 5px;
-            background-color: #fdfdff;
-            min-height: 300px;
+        .card-spinner {
+            display: none; /* Hidden by default */
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            z-index: 10;
+        }
+
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        .image-preview-container, .results-area {
+            min-height: 200px;
         }
         
-        #imagePreviewContainer h3, #results h3 {
+        .image-preview-container h3, .results-area h3 {
             margin-top: 0;
             color: var(--secondary-color);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
         }
 
-        #imagePreview {
+        .image-preview {
             max-width: 100%;
             border-radius: 4px;
             margin-top: 1rem;
@@ -146,12 +175,11 @@
             border-radius: 3px;
         }
 
-        #error-message {
-            color: #dc3545;
-            text-align: center;
-            margin-top: 1rem;
-            display: none;
+        .error-text {
+            color: var(--error-color);
+            font-weight: bold;
         }
+
     </style>
 </head>
 <body>
@@ -159,71 +187,114 @@
     <div class="container">
         <header>
             <h1>Surya OCR</h1>
-            <p>Upload an image to extract text using Surya OCR.</p>
+            <p>Upload one or more images to extract text.</p>
         </header>
 
         <div class="controls">
-            <input type="file" id="imageFile" accept="image/*">
-            <button id="submitBtn">Extract Text</button>
+            <input type="file" id="imageFile" accept="image/*" multiple>
+            <button id="submitBtn" disabled>Extract Text</button>
+            <button id="clearBtn">Clear All</button>
         </div>
-
-        <div class="spinner" id="spinner"></div>
-        <div id="error-message"></div>
         
-        <div class="results-container">
-            <div id="imagePreviewContainer">
-                <h3>Image Preview</h3>
-                <img id="imagePreview" src="" alt="Image Preview"/>
-            </div>
-            <div id="results">
-                <h3>Extracted Text</h3>
-                <div id="results-content">
-                    <p>Results will appear here...</p>
-                </div>
-            </div>
+        <div id="gallery">
+            <!-- Result cards will be dynamically inserted here -->
         </div>
     </div>
 
     <script>
         const imageFileInput = document.getElementById('imageFile');
         const submitButton = document.getElementById('submitBtn');
-        const spinner = document.getElementById('spinner');
-        const resultsContent = document.getElementById('results-content');
-        const imagePreview = document.getElementById('imagePreview');
-        const errorMessageDiv = document.getElementById('error-message');
+        const clearButton = document.getElementById('clearBtn');
+        const gallery = document.getElementById('gallery');
 
-        // Show image preview as soon as a file is selected
         imageFileInput.addEventListener('change', () => {
-            const file = imageFileInput.files[0];
-            if (file) {
+            gallery.innerHTML = ''; // Clear previous previews
+            const files = imageFileInput.files;
+            
+            if (!files || files.length === 0) {
+                submitButton.disabled = true;
+                return;
+            }
+            submitButton.disabled = false;
+
+            Array.from(files).forEach((file, index) => {
+                const card = createResultCard(index, file.name);
+                gallery.appendChild(card);
+                
+                const imagePreview = document.getElementById(`image-preview-${index}`);
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     imagePreview.src = e.target.result;
                     imagePreview.style.display = 'block';
                 }
                 reader.readAsDataURL(file);
-            }
+            });
+        });
+
+        clearButton.addEventListener('click', () => {
+            imageFileInput.value = ''; // Important to reset the file input
+            gallery.innerHTML = '';
+            submitButton.disabled = true;
         });
 
         submitButton.addEventListener('click', async () => {
-            const file = imageFileInput.files[0];
-            if (!file) {
-                displayError("Please select an image file first.");
+            const files = imageFileInput.files;
+            if (!files || files.length === 0) {
+                alert("Please select one or more image files first.");
                 return;
             }
 
-            // Reset UI
-            resultsContent.innerHTML = '';
-            spinner.style.display = 'block';
+            // Disable buttons
             submitButton.disabled = true;
             submitButton.textContent = 'Processing...';
-            errorMessageDiv.style.display = 'none';
+            clearButton.disabled = true;
+
+            const processingPromises = Array.from(files).map((file, index) => {
+                return processImage(file, index);
+            });
+
+            await Promise.all(processingPromises);
+
+            // Re-enable buttons
+            submitButton.disabled = false;
+            submitButton.textContent = 'Extract Text';
+            clearButton.disabled = false;
+        });
+
+        function createResultCard(index, fileName) {
+            const card = document.createElement('div');
+            card.className = 'result-card';
+            card.id = `card-${index}`;
+            
+            card.innerHTML = `
+                <div class="card-spinner" id="spinner-${index}"></div>
+                <div class="card-content">
+                    <div class="image-preview-container">
+                        <h3>${fileName}</h3>
+                        <img class="image-preview" id="image-preview-${index}" src="" alt="Image Preview"/>
+                    </div>
+                    <div class="results-area">
+                        <h3>Extracted Text</h3>
+                        <div id="results-content-${index}">
+                            <p>Ready to process...</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return card;
+        }
+
+        async function processImage(file, index) {
+            const spinner = document.getElementById(`spinner-${index}`);
+            const resultsContent = document.getElementById(`results-content-${index}`);
+            
+            spinner.style.display = 'block';
+            resultsContent.innerHTML = '';
 
             const formData = new FormData();
             formData.append('image', file);
 
             try {
-                // Change the URL to your Flask server's address if it's not running on localhost
                 const response = await fetch('/api/ocr', {
                     method: 'POST',
                     body: formData,
@@ -235,23 +306,20 @@
                 }
 
                 const data = await response.json();
-                displayResults(data.text_lines);
+                displayResults(data.text_lines, resultsContent);
 
             } catch (error) {
-                console.error('Error:', error);
-                displayError(`An error occurred: ${error.message}`);
+                console.error(`Error processing file ${index}:`, error);
+                displayError(`An error occurred: ${error.message}`, resultsContent);
             } finally {
-                // Restore UI
                 spinner.style.display = 'none';
-                submitButton.disabled = false;
-                submitButton.textContent = 'Extract Text';
             }
-        });
+        }
 
-        function displayResults(lines) {
-            resultsContent.innerHTML = ''; // Clear previous results
+        function displayResults(lines, targetElement) {
+            targetElement.innerHTML = ''; // Clear previous content
             if (!lines || lines.length === 0) {
-                resultsContent.innerHTML = '<p>No text was detected in the image.</p>';
+                targetElement.innerHTML = '<p>No text was detected in the image.</p>';
                 return;
             }
 
@@ -262,7 +330,7 @@
                 const textSpan = document.createElement('span');
                 textSpan.className = 'result-text';
                 
-                // FIX: Remove <b> and </b> tags from the text before displaying it.
+                // Remove any bold tags from the model's output
                 const cleanedText = line.text.replace(/<\/?b>/g, '');
                 textSpan.textContent = `"${cleanedText}"`;
                 
@@ -273,16 +341,13 @@
 
                 lineDiv.appendChild(textSpan);
                 lineDiv.appendChild(confidenceSpan);
-                resultsContent.appendChild(lineDiv);
+                targetElement.appendChild(lineDiv);
             });
         }
         
-        function displayError(message) {
-            errorMessageDiv.textContent = message;
-            errorMessageDiv.style.display = 'block';
-            resultsContent.innerHTML = '<p>Processing failed.</p>';
+        function displayError(message, targetElement) {
+            targetElement.innerHTML = `<p class="error-text">${message}</p>`;
         }
-
     </script>
 </body>
 </html>
