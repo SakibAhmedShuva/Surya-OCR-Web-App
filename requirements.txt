@@ -1,3 +1,8 @@
 #https://github.com/VikParuchuri/surya
 #Make sure to do below first if any error arises:
 #pip uninstall torch torchvision torchaudio surya-ocr transformers
+
+surya-ocr
+torch
+torchvision
+torchaudio
