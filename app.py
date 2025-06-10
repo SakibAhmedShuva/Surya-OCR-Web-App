@@ -17,6 +17,8 @@ try:
     print(f"Using device: {device}")
 
     # Initialize models
+    # FIX: The predictors are initialized without any language or task arguments.
+    # The library is designed to handle this automatically.
     detection_predictor = DetectionPredictor()
     recognition_predictor = RecognitionPredictor()
     print("Surya models loaded successfully.")
@@ -50,13 +52,11 @@ def ocr_endpoint():
     try:
         # Open the image from the in-memory file stream
         image = Image.open(file.stream).convert("RGB")
-        langs = ["en"]  # Languages to detect
 
         # Perform OCR
-        # FIX: Pass `langs` directly instead of `[langs]`.
-        # The model expects a flat list of languages for this use case,
-        # not a list containing another list.
-        predictions = recognition_predictor([image], langs, detection_predictor)
+        # FIX: The correct way to call the predictor is by passing the detection_predictor
+        # as a keyword argument 'det_predictor'. Languages are handled automatically.
+        predictions = recognition_predictor([image], det_predictor=detection_predictor)
         ocr_result = predictions[0]
 
         # Format the output into a clean JSON structure
