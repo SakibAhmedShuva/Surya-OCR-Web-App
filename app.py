@@ -1,3 +1,5 @@
+# --- START OF FILE app.py ---
+
 import torch
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
@@ -17,7 +19,7 @@ try:
     print(f"Using device: {device}")
 
     # Initialize models
-    # FIX: The predictors are initialized without any language or task arguments.
+    # The predictors are initialized without any language or task arguments.
     # The library is designed to handle this automatically.
     detection_predictor = DetectionPredictor()
     recognition_predictor = RecognitionPredictor()
@@ -54,7 +56,7 @@ def ocr_endpoint():
         image = Image.open(file.stream).convert("RGB")
 
         # Perform OCR
-        # FIX: The correct way to call the predictor is by passing the detection_predictor
+        # The correct way to call the predictor is by passing the detection_predictor
         # as a keyword argument 'det_predictor'. Languages are handled automatically.
         predictions = recognition_predictor([image], det_predictor=detection_predictor)
         ocr_result = predictions[0]
