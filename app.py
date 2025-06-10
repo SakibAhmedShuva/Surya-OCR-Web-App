@@ -53,7 +53,10 @@ def ocr_endpoint():
         langs = ["en"]  # Languages to detect
 
         # Perform OCR
-        predictions = recognition_predictor([image], [langs], detection_predictor)
+        # FIX: Pass `langs` directly instead of `[langs]`.
+        # The model expects a flat list of languages for this use case,
+        # not a list containing another list.
+        predictions = recognition_predictor([image], langs, detection_predictor)
         ocr_result = predictions[0]
 
         # Format the output into a clean JSON structure
