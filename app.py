@@ -222,4 +222,4 @@ def health_check():
 
 if __name__ == '__main__':
     # Running on 0.0.0.0 makes the app accessible from other devices on the same network.
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='0.0.0.0', port=5004, debug=False)
